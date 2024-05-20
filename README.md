@@ -80,7 +80,7 @@ EuroSportHub is A Euro 2024 application built with Java designed to keep you upd
 1. Clone the repository:
    ```sh
    git clone https://github.com/Moddic10/EuroSporthub---A-Football-Streaming-app.git
-   cd EuroSportHub/backend
+   cd EuroSportHub/demo
    ```
 
 2. **Database Setup**:
