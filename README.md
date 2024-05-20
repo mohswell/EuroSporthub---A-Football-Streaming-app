@@ -155,6 +155,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact 📧
 
-Your Name - [Mohammed Said@](mailto:mohammedandy10@gmail.com)
+Your Name - [Muhammad Said](mailto:mohammedabdy10@gmail.com)
 
 Project Link: [https://github.com/Moddic10/EuroSportHub](https://github.com/Moddic10/EuroSporthub---A-Football-Streaming-app)
