@@ -64,7 +64,7 @@ public class LiveScoreService {
     }
 
     public List<Match> getMatchesByTeam(String teamId) {
-        return matchRepository.findByTeam1OrTeam2(teamId, teamId);
+        return matchRepository.findByTeam1_IdOrTeam2_Id(teamId, teamId);
     }
 
     public Match updateMatch(String id, Match matchDetails) {

@@ -8,5 +8,6 @@ import java.util.List;
 
 public interface MatchRepository extends MongoRepository<Match, String> {
     List<Match> findByTeam1OrTeam2(Team team1, Team team2);
+    List<Match> findByTeam1_IdOrTeam2_Id(String team1Id, String team2Id);
 }
 
