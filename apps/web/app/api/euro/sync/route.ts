@@ -1,16 +1,6 @@
-import { loadEnvConfig } from "@next/env";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-
-const workingDirectory = process.cwd();
-const repositoryRoot = existsSync(resolve(workingDirectory, "package-lock.json"))
-  ? workingDirectory
-  : resolve(workingDirectory, "../..");
-
-loadEnvConfig(repositoryRoot);
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");

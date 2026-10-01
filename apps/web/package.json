@@ -7,7 +7,6 @@
     "start": "next start --hostname 0.0.0.0"
   },
   "dependencies": {
-    "@next/env": "16.3.7",
     "@fontsource/barlow-condensed": "^5.2.6",
     "@fontsource/dm-sans": "^5.2.6",
     "lucide-react": "^0.468.0",
