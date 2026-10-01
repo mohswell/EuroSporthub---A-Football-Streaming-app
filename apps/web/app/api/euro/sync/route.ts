@@ -4,10 +4,8 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  const allowedOrigins = (process.env.WEB_ORIGIN ?? "")
-    .split(",")
-    .map((value) => value.trim());
-  if (!origin || allowedOrigins.length === 0 || !allowedOrigins.includes(origin)) {
+  const requestOrigin = new URL(request.url).origin;
+  if (!origin || origin !== requestOrigin) {
     return Response.json({ message: "Sync requests must originate from the configured web origin." }, { status: 403 });
   }
 

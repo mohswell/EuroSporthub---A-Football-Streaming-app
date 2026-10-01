@@ -49,7 +49,7 @@ npm install
 npm run dev:web
 ```
 
-Open `http://localhost:3000`. The browser reads the API at `http://localhost:8080/api/euro-2024` by default.
+Open `http://localhost:3000`. The browser uses the same-origin Next.js API proxy by default. Set `NEXT_PUBLIC_EURO_API_URL` only when bypassing that proxy.
 
 ## Data Sync
 
