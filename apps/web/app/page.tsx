@@ -15,179 +15,21 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-
-type View = "fixtures" | "groups" | "teams" | "players";
-type Team = {
-  id: string;
-  name: string;
-  country?: string;
-  groupId?: string;
-  groupName?: string;
-  logoUrl?: string;
-};
-type Fixture = {
-  id: string;
-  groupId?: string;
-  groupName?: string;
-  homeTeamId?: string;
-  awayTeamId?: string;
-  homeName: string;
-  awayName: string;
-  homeScore?: number;
-  awayScore?: number;
-  status?: string;
-  stage?: string;
-  kickoffAt?: string;
-  venue?: string;
-};
-type Group = { groupId: string; name: string; team_count: number };
-type Standing = {
-  teamId: string;
-  teamName: string;
-  logoUrl?: string;
-  position?: number;
-  played?: number;
-  won?: number;
-  drawn?: number;
-  lost?: number;
-  goalsFor?: number;
-  goalsAgainst?: number;
-  goalDifference?: number;
-  points?: number;
-};
-type Player = {
-  id: string;
-  teamId: string;
-  teamName?: string;
-  name: string;
-  position?: string;
-  shirtNumber?: number;
-  nationality?: string;
-  photoUrl?: string;
-};
-type Summary = {
-  team_count?: number;
-  match_count?: number;
-  player_count?: number;
-  last_synced_at?: string | null;
-};
-type SyncRun = {
-  id: number;
-  status: string;
-  recordsUpserted: number;
-  startedAt: string;
-  finishedAt?: string | null;
-};
-
-const API_BASE = (process.env.NEXT_PUBLIC_EURO_API_URL ?? "http://localhost:8080/api/euro-2024").replace(/\/$/, "");
-
-async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { cache: "no-store", signal });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.detail ?? body?.message ?? `Euro API request failed (${response.status})`);
-  }
-  return response.json() as Promise<T>;
-}
-
-function Crest({ team, label }: { team?: Team; label: string }) {
-  return (
-    <span className="crest" aria-label={`${label} crest`}>
-      {team?.logoUrl && <img src={team.logoUrl} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}
-      <span>{label.slice(0, 3).toUpperCase()}</span>
-    </span>
-  );
-}
-
-function formatKickoff(value?: string) {
-  if (!value) return "Date TBC";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Berlin",
-  }).format(date);
-}
-
-function isLive(status?: string) {
-  return Boolean(status && /live|playing|in.?progress/i.test(status));
-}
+import { useMemo, useState } from "react";
+import type { View } from "./euro/types";
+import { Crest, EmptyState, formatKickoff, isLive } from "./components/EuroPrimitives";
+import { useEuroData } from "./euro/useEuroData";
 
 export default function Home() {
   const [view, setView] = useState<View>("fixtures");
-  const [summary, setSummary] = useState<Summary>({});
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [fixtures, setFixtures] = useState<Fixture[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [table, setTable] = useState<Standing[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [syncRuns, setSyncRuns] = useState<SyncRun[]>([]);
-  const [groupId, setGroupId] = useState("2763");
+  const [groupId, setGroupId] = useState("");
   const [fixtureGroupId, setFixtureGroupId] = useState("");
   const [teamId, setTeamId] = useState("");
   const [search, setSearch] = useState("");
   const [liveTable, setLiveTable] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
-  const [error, setError] = useState("");
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    async function loadBase() {
-      setLoading(true);
-      setError("");
-      try {
-        const [nextSummary, nextTeams, nextFixtures, nextGroups, nextSyncRuns] = await Promise.all([
-          request<Summary>("/summary", controller.signal),
-          request<Team[]>("/teams", controller.signal),
-          request<Fixture[]>("/fixtures", controller.signal),
-          request<Group[]>("/groups", controller.signal),
-          request<SyncRun[]>("/sync-runs", controller.signal),
-        ]);
-        setSummary(nextSummary);
-        setTeams(nextTeams);
-        setFixtures(nextFixtures);
-        setGroups(nextGroups);
-        setSyncRuns(nextSyncRuns);
-        if (nextGroups.length > 0 && !nextGroups.some((group) => group.groupId === groupId)) {
-          setGroupId(nextGroups[0].groupId);
-        }
-      } catch (cause) {
-        if (!controller.signal.aborted) {
-          setError(cause instanceof Error ? cause.message : "Could not reach the Euro API.");
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void loadBase();
-    return () => controller.abort();
-  }, [reload]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    if (!groupId) return () => controller.abort();
-    request<Standing[]>(`/groups/${encodeURIComponent(groupId)}/table?live=${liveTable}`, controller.signal)
-      .then(setTable)
-      .catch(() => { if (!controller.signal.aborted) setTable([]); });
-    return () => controller.abort();
-  }, [groupId, liveTable, reload]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    if (view !== "players") return () => controller.abort();
-    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-    request<Player[]>(`/players${query}`, controller.signal)
-      .then(setPlayers)
-      .catch(() => { if (!controller.signal.aborted) setPlayers([]); });
-    return () => controller.abort();
-  }, [view, teamId, reload]);
+  const { summary, teams, fixtures, groups, table, players, syncRuns, loading, syncing, syncMessage, error, refresh, runSync } = useEuroData({
+    view, groupId, teamId, liveTable,
+  });
 
   const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
   const normalizedSearch = search.trim().toLowerCase();
@@ -227,25 +69,6 @@ export default function Home() {
     { id: "players", label: "Players", icon: Users },
   ];
 
-  async function runSync() {
-    setSyncing(true);
-    setSyncMessage("");
-    setError("");
-    try {
-      const response = await fetch("/api/euro/sync", { method: "POST", cache: "no-store" });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.message ?? `Sync failed (${response.status})`);
-      }
-      setSyncMessage(`${payload.teamsUpserted} teams · ${payload.groupsUpserted} groups · ${payload.matchesUpserted} matches · ${payload.standingsUpserted} standings`);
-      setReload((value) => value + 1);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not sync tournament data.");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -258,7 +81,7 @@ export default function Home() {
           <button className="sync-button" onClick={runSync} disabled={syncing} title="Sync EURO data from LiveScore into Supabase">
             <CloudDownload size={16} /> <span>{syncing ? "Syncing" : "Sync data"}</span>
           </button>
-          <button className="refresh-button" onClick={() => setReload((value) => value + 1)} aria-label="Refresh data" title="Refresh data">
+          <button className="refresh-button" onClick={refresh} aria-label="Refresh data" title="Refresh data">
             <RefreshCw size={17} /> <span>Refresh</span>
           </button>
         </div>
@@ -319,7 +142,7 @@ export default function Home() {
           <div className="alert-banner" role="alert">
             <CircleAlert size={18} />
             <div><strong>Euro data is unavailable.</strong><span>{error}</span></div>
-            <button onClick={() => setReload((value) => value + 1)}>Retry</button>
+            <button onClick={refresh}>Retry</button>
           </div>
         )}
 
@@ -391,7 +214,7 @@ export default function Home() {
           <section className="standings-panel">
             <div className="panel-heading"><div><span className="panel-kicker">ROAD TO BERLIN</span><h3>Group standings</h3></div>
               <label className="group-select"><span>GROUP</span><select value={groupId} onChange={(event) => setGroupId(event.target.value)} aria-label="Select group">
-                {groups.length ? groups.map((group) => <option key={group.groupId} value={group.groupId}>{group.name}</option>) : <option value="2763">Group B</option>}
+                {groups.map((group) => <option key={group.groupId} value={group.groupId}>{group.name}</option>)}
               </select><ChevronDown size={15} /></label>
             </div>
             <div className="table-mode" role="group" aria-label="Standings mode">
@@ -427,6 +250,3 @@ export default function Home() {
   );
 }
 
-function EmptyState({ title, detail }: { title: string; detail: string }) {
-  return <div className="empty-state"><span className="empty-icon"><Flag size={21} /></span><strong>{title}</strong><p>{detail}</p></div>;
-}

@@ -13,15 +13,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production") {
-    return Response.json({ message: "Manual sync is available only from the trusted development UI." }, { status: 404 });
-  }
-
   const origin = request.headers.get("origin");
-  const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:3000")
+  const allowedOrigins = (process.env.WEB_ORIGIN ?? "")
     .split(",")
     .map((value) => value.trim());
-  if (!origin || !allowedOrigins.includes(origin)) {
+  if (!origin || allowedOrigins.length === 0 || !allowedOrigins.includes(origin)) {
     return Response.json({ message: "Sync requests must originate from the configured web origin." }, { status: 403 });
   }
 
@@ -30,8 +26,10 @@ export async function POST(request: Request) {
     return Response.json({ message: "Set EURO_SYNC_TOKEN in the root .env before syncing." }, { status: 503 });
   }
 
-  const apiBase = (process.env.EURO_API_URL ?? process.env.NEXT_PUBLIC_EURO_API_URL ?? "http://localhost:8080/api/euro-2024")
-    .replace(/\/$/, "");
+  const apiBase = process.env.EURO_API_URL?.replace(/\/$/, "");
+  if (!apiBase) {
+    return Response.json({ message: "EURO_API_URL is not configured." }, { status: 503 });
+  }
   try {
     const response = await fetch(`${apiBase}/sync`, {
       method: "POST",

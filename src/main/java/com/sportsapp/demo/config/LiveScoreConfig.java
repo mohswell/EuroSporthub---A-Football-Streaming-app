@@ -6,12 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class LiveScoreConfig {
-    private final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-
-    @Bean
-    public String liveScoreApiUrl() {
-        return value("LIVE_SCORE_API_URL");
-    }
+    private final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().ignoreIfMalformed().load();
 
     @Bean
     public String liveScoreApiKey() {
@@ -29,11 +24,15 @@ public class LiveScoreConfig {
     }
 
     private String value(String name) {
+        return value(name, "");
+    }
+
+    private String value(String name, String fallback) {
         String environmentValue = System.getenv(name);
         if (environmentValue != null) {
             return environmentValue;
         }
         String dotenvValue = dotenv.get(name);
-        return dotenvValue == null ? "" : dotenvValue;
+        return dotenvValue == null ? fallback : dotenvValue;
     }
 }

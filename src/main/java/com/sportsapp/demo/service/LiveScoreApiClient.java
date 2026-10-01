@@ -2,6 +2,7 @@ package com.sportsapp.demo.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -11,17 +12,16 @@ import java.util.Map;
 
 @Component
 public class LiveScoreApiClient {
-    private static final String API_BASE_URL = "https://livescore-api.com/api-client";
-
     private final RestClient restClient;
     private final String apiKey;
     private final String apiSecret;
 
     public LiveScoreApiClient(
             RestClient.Builder restClientBuilder,
+            @Value("${app.livescore.api-base-url}") String apiBaseUrl,
             @Qualifier("liveScoreApiKey") String apiKey,
             @Qualifier("liveScoreApiSecret") String apiSecret) {
-        this.restClient = restClientBuilder.baseUrl(API_BASE_URL).build();
+        this.restClient = restClientBuilder.baseUrl(apiBaseUrl).build();
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
     }

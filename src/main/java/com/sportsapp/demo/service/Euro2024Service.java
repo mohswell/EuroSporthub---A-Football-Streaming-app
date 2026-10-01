@@ -15,7 +15,7 @@ public class Euro2024Service {
 
     public Euro2024Service(
             JdbcTemplate jdbcTemplate,
-            @Value("${app.euro.competition-id:387}") String competitionId) {
+            @Value("${app.euro.competition-id}") String competitionId) {
         this.jdbcTemplate = jdbcTemplate;
         this.competitionId = competitionId;
     }

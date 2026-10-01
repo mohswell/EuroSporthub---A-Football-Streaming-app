@@ -16,7 +16,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -31,9 +30,9 @@ import org.springframework.jdbc.support.KeyHolder;
 
 @Service
 public class EuroSyncService {
-    private static final String COMPETITION_ID = "387";
-    private static final int SEASON = 2024;
-    private static final String TEAM_LOGO_BASE = "https://cdn.live-score-api.com/teams/";
+    private final String competitionId;
+    private final int season;
+    private final String teamLogoBaseUrl;
     private static final Set<String> TEAM_ARRAY_NAMES = Set.of("participants", "teams", "results", "data");
     private static final Set<String> GROUP_ARRAY_NAMES = Set.of("groups", "results", "data");
     private static final Set<String> SQUAD_ARRAY_NAMES = Set.of("players", "squad", "results", "data");
@@ -47,10 +46,16 @@ public class EuroSyncService {
     public EuroSyncService(
             JdbcTemplate jdbcTemplate,
             LiveScoreApiClient liveScoreApiClient,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            @Value("${app.euro.competition-id}") String competitionId,
+            @Value("${app.euro.season}") int season,
+            @Value("${app.euro.team-logo-base-url}") String teamLogoBaseUrl) {
         this.jdbcTemplate = jdbcTemplate;
         this.liveScoreApiClient = liveScoreApiClient;
         this.objectMapper = objectMapper;
+        this.competitionId = competitionId;
+        this.season = season;
+        this.teamLogoBaseUrl = teamLogoBaseUrl;
     }
 
     public Map<String, Object> sync() {
@@ -75,23 +80,23 @@ public class EuroSyncService {
             int players = 0;
         try {
             JsonNode participants = liveScoreApiClient.get("competitions/participants.json", Map.of(
-                    "competition_id", COMPETITION_ID,
-                    "season", Integer.toString(SEASON)));
+                    "competition_id", competitionId,
+                    "season", Integer.toString(season)));
             upsertCompetition(participants, postgres);
             teams = syncTeams(participants, postgres);
 
                 JsonNode groupResponse = liveScoreApiClient.get("competitions/groups.json", Map.of(
-                    "competition_id", COMPETITION_ID));
+                    "competition_id", competitionId));
                 groups = syncGroups(groupResponse, postgres);
 
                 Set<String> groupIds = new LinkedHashSet<>(jdbcTemplate.queryForList(
                     "SELECT id FROM euro_groups WHERE competition_id = ? ORDER BY name",
-                    String.class, COMPETITION_ID));
+                    String.class, competitionId));
             for (String groupId : groupIds) {
                 JsonNode table = liveScoreApiClient.get("groups/table.json", Map.of("group_id", groupId));
                 standings += syncStandings(table, groupId, false, postgres);
                 JsonNode liveTable = liveScoreApiClient.get("standings/live.json", Map.of(
-                        "competition_id", COMPETITION_ID,
+                        "competition_id", competitionId,
                         "group_id", groupId));
                 standings += syncStandings(liveTable, groupId, true, postgres);
             }
@@ -100,8 +105,8 @@ public class EuroSyncService {
 
             Map<String, Object> result = Map.of(
                     "status", "succeeded",
-                    "competitionId", COMPETITION_ID,
-                    "season", SEASON,
+                    "competitionId", competitionId,
+                    "season", season,
                     "teamsUpserted", teams,
                     "groupsUpserted", groups,
                     "matchesUpserted", matches,
@@ -128,7 +133,7 @@ public class EuroSyncService {
             jdbcTemplate.update("""
                     MERGE INTO euro_competitions (id, name, season, country, provider_payload, updated_at)
                     KEY (id) VALUES (?, 'UEFA EURO 2024', ?, 'Germany', ?::jsonb, now())
-                    """, COMPETITION_ID, SEASON, json(payload));
+                    """, competitionId, season, json(payload));
             return;
         }
         jdbcTemplate.update("""
@@ -136,7 +141,7 @@ public class EuroSyncService {
                 VALUES (?, 'UEFA EURO 2024', ?, 'Germany', ?::jsonb)
                 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, season = EXCLUDED.season,
                     country = EXCLUDED.country, provider_payload = EXCLUDED.provider_payload, updated_at = now()
-                """, COMPETITION_ID, SEASON, json(payload));
+                """, competitionId, season, json(payload));
     }
 
     private int syncGroups(JsonNode response, boolean postgres) {
@@ -156,12 +161,12 @@ public class EuroSyncService {
                         ON CONFLICT (id) DO UPDATE SET competition_id = EXCLUDED.competition_id,
                             name = EXCLUDED.name, stage = EXCLUDED.stage,
                             provider_payload = EXCLUDED.provider_payload, updated_at = now()
-                        """, id, COMPETITION_ID, displayName, stage, json(row));
+                        """, id, competitionId, displayName, stage, json(row));
             } else {
                 jdbcTemplate.update("""
                         MERGE INTO euro_groups (id, competition_id, name, stage, provider_payload, updated_at)
                         KEY (id) VALUES (?, ?, ?, ?, ?::jsonb, now())
-                        """, id, COMPETITION_ID, displayName, stage, json(row));
+                        """, id, competitionId, displayName, stage, json(row));
             }
             count++;
         }
@@ -175,7 +180,7 @@ public class EuroSyncService {
         jdbcTemplate.queryForList("""
                 SELECT id AS "teamId", group_id AS "groupId"
                 FROM euro_teams WHERE competition_id = ?
-                """, COMPETITION_ID).forEach(row -> {
+                """, competitionId).forEach(row -> {
             Object teamId = row.get("teamId");
             Object groupId = row.get("groupId");
             if (teamId != null && groupId != null) {
@@ -183,12 +188,12 @@ public class EuroSyncService {
             }
         });
         Map<String, String> groupNames = new HashMap<>();
-        jdbcTemplate.queryForList("SELECT id, name FROM euro_groups WHERE competition_id = ?", COMPETITION_ID)
+        jdbcTemplate.queryForList("SELECT id, name FROM euro_groups WHERE competition_id = ?", competitionId)
                 .forEach(row -> groupNames.put(row.get("id").toString(), row.get("name").toString()));
 
         for (int page = 1; page <= totalPages; page++) {
             JsonNode response = liveScoreApiClient.get("scores/history.json", Map.of(
-                    "competition_id", COMPETITION_ID,
+                    "competition_id", competitionId,
                     "from", "2024-06-14",
                     "to", "2024-07-14",
                     "page", Integer.toString(page)));
@@ -216,7 +221,7 @@ public class EuroSyncService {
             String groupName = firstText(row, "group_name", "groupName", "group");
             String logo = firstText(row, "logo_url", "logo", "image", "crest");
             if (logo == null) {
-                logo = TEAM_LOGO_BASE + id + ".png";
+                logo = teamLogoBaseUrl + id + ".png";
             }
             String country = firstText(row, "country", "country_name");
             if (postgres) {
@@ -227,13 +232,13 @@ public class EuroSyncService {
                             name = EXCLUDED.name, country = EXCLUDED.country, group_id = EXCLUDED.group_id,
                             group_name = EXCLUDED.group_name, logo_url = EXCLUDED.logo_url,
                             provider_payload = EXCLUDED.provider_payload, updated_at = now()
-                        """, id, COMPETITION_ID, name, country, groupId, groupName, logo, json(row));
+                        """, id, competitionId, name, country, groupId, groupName, logo, json(row));
             } else {
                 jdbcTemplate.update("""
                         MERGE INTO euro_teams (id, competition_id, name, country, group_id, group_name,
                             logo_url, provider_payload, updated_at)
                         KEY (id) VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, now())
-                        """, id, COMPETITION_ID, name, country, groupId, groupName, logo, json(row));
+                        """, id, competitionId, name, country, groupId, groupName, logo, json(row));
             }
             count++;
         }
@@ -243,11 +248,11 @@ public class EuroSyncService {
     private int syncSquads(boolean postgres) {
         List<String> teamIds = jdbcTemplate.queryForList("""
                 SELECT id FROM euro_teams WHERE competition_id = ? ORDER BY name
-                """, String.class, COMPETITION_ID);
+                """, String.class, competitionId);
         int count = 0;
         for (String teamId : teamIds) {
             JsonNode response = liveScoreApiClient.get("competitions/squads.json", Map.of(
-                    "competition_id", COMPETITION_ID,
+                    "competition_id", competitionId,
                     "team_id", teamId));
             for (JsonNode row : records(response, SQUAD_ARRAY_NAMES)) {
                 String playerId = firstText(row, "id", "player_id", "playerId");
@@ -352,7 +357,7 @@ public class EuroSyncService {
                             stage = EXCLUDED.stage, kickoff_at = EXCLUDED.kickoff_at,
                             venue = EXCLUDED.venue, provider_payload = EXCLUDED.provider_payload,
                             updated_at = now()
-                        """, id, COMPETITION_ID, groupId, groupName, homeId, awayId, homeName, awayName,
+                        """, id, competitionId, groupId, groupName, homeId, awayId, homeName, awayName,
                         homeScore, awayScore, status, stage, kickoffAt, venue, json(row));
             } else {
                 jdbcTemplate.update("""
@@ -360,7 +365,7 @@ public class EuroSyncService {
                             home_team_id, away_team_id, home_name, away_name, home_score, away_score,
                             status, stage, kickoff_at, venue, provider_payload, updated_at)
                         KEY (id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, now())
-                        """, id, COMPETITION_ID, groupId, groupName, homeId, awayId, homeName, awayName,
+                        """, id, competitionId, groupId, groupName, homeId, awayId, homeName, awayName,
                         homeScore, awayScore, status, stage, kickoffAt, venue, json(row));
             }
             count++;
@@ -385,7 +390,7 @@ public class EuroSyncService {
             if (teamId == null && teamName != null) {
                 List<String> foundIds = jdbcTemplate.queryForList("""
                         SELECT id FROM euro_teams WHERE competition_id = ? AND lower(name) = lower(?) LIMIT 1
-                        """, String.class, COMPETITION_ID, teamName);
+                        """, String.class, competitionId, teamName);
                 if (!foundIds.isEmpty()) {
                     teamId = foundIds.getFirst();
                 }
@@ -428,7 +433,7 @@ public class EuroSyncService {
                             lost = EXCLUDED.lost, goals_for = EXCLUDED.goals_for,
                             goals_against = EXCLUDED.goals_against, goal_difference = EXCLUDED.goal_difference,
                             points = EXCLUDED.points, provider_payload = EXCLUDED.provider_payload, updated_at = now()
-                        """, COMPETITION_ID, groupId, teamId, groupName, position, played, won, drawn, lost,
+                        """, competitionId, groupId, teamId, groupName, position, played, won, drawn, lost,
                         goalsFor, goalsAgainst, goalDifference, points, live, json(row));
             } else {
                 jdbcTemplate.update("""
@@ -437,7 +442,7 @@ public class EuroSyncService {
                             points, is_live, provider_payload, updated_at)
                         KEY (competition_id, group_id, team_id, is_live)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, now())
-                        """, COMPETITION_ID, groupId, teamId, groupName, position, played, won, drawn, lost,
+                        """, competitionId, groupId, teamId, groupName, position, played, won, drawn, lost,
                         goalsFor, goalsAgainst, goalDifference, points, live, json(row));
             }
             count++;
@@ -474,7 +479,7 @@ public class EuroSyncService {
                 return child;
             }
         }
-        var fields = node.fields();
+        var fields = node.properties().iterator();
         while (fields.hasNext()) {
             JsonNode found = findArray(fields.next().getValue(), names);
             if (found != null) {

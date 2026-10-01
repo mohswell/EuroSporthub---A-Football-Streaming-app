@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
 
@@ -13,16 +12,11 @@ import java.util.Arrays;
 public class AppConfig {
 
     @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
-    }
-
-    @Bean
     public WebMvcConfigurer corsConfigurer() {
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().ignoreIfMalformed().load();
         String origin = System.getenv("WEB_ORIGIN");
         if (origin == null || origin.isBlank()) {
-            origin = dotenv.get("WEB_ORIGIN", "http://localhost:3000");
+            origin = dotenv.get("WEB_ORIGIN", "");
         }
         String[] origins = Arrays.stream(origin.split(","))
                 .map(String::trim)
