@@ -1,0 +1,16 @@
+{
+  "name": "eurosporthub-monorepo",
+  "private": true,
+  "workspaces": ["apps/web"],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
+  },
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "start:web": "npm --workspace apps/web run start"
+  }
+}

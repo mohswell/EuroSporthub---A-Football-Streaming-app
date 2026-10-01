@@ -1,0 +1,38 @@
+previews:
+  generation: manual
+
+services:
+  - type: web
+    name: eurosporthub-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: frankfurt
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
+      - key: SUPABASE_DB_HOST
+        sync: false
+      - key: SUPABASE_DB_PORT
+        value: "5432"
+      - key: SUPABASE_DB_USER
+        sync: false
+      - key: LIVE_SCORE_API_KEY
+        sync: false
+      - key: LIVE_SCORE_API_SECRET
+        sync: false
+      - key: LIVE_SCORE_API_BASE_URL
+        value: https://livescore-api.com/api-client
+      - key: TEAM_LOGO_BASE_URL
+        value: https://cdn.live-score-api.com/teams/
+      - key: EURO_DEFAULT_GROUP_ID
+        value: "2763"
+      - key: WEB_ORIGIN
+        sync: false
+      - key: EURO_SYNC_TOKEN
+        generateValue: true

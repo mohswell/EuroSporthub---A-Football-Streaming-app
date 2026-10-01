@@ -1,160 +1,126 @@
 
-# EuroSportHub 🏆
+# EuroSportHub
 
-EuroSportHub is A Euro 2024 application built with Java designed to keep you updated with the latest live scores, team statistics, and match details. This application leverages cutting-edge technologies to provide real-time data and a seamless user experience. 
+EuroSportHub is a Next.js match-centre UI and Spring Boot API for UEFA EURO 2024. The API stores competition participants, fixtures, group tables, standings, and available player records in Supabase PostgreSQL. LiveScore credentials are used only by the server.
 
-## Table of Contents
+## Workspace
 
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Backend Logic](#backend-logic)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license)
-- [Contact](#contact)
+- `apps/web`: Next.js 16 dashboard (fixtures, group tables, teams, players).
+- `src/main`: Spring Boot API, LiveScore client, Supabase JDBC configuration, and Flyway migrations.
+- `src/main/resources/db/migration/V1__create_euro_2024_tables.sql`: creates the EURO data tables on API startup.
 
-## Features ✨
+## Requirements
 
-- **Live Scores**: Real-time updates of ongoing matches.
-- **Team and Player Statistics**: Detailed statistics for teams and players.
-- **Search Functionality**: Search for specific teams or matches.
-- **Date Range Selector**: Easily navigate through different match dates.
-- **Group Listings**: View groups and teams participating in various leagues.
-- **User Authentication**: Secure login and registration system.
-- **User Profile**: Manage your personal profile and preferences.
+- JDK 25
+- Node.js 22.23.3 (`.nvmrc`)
+- npm 9+
+- A Supabase PostgreSQL connection with network access from the API host
+- A LiveScore API account with access enabled for the competition endpoints
 
-## Technologies Used 💻
+## Configuration
 
-### Backend
-- **Java**
-- **Spring Boot**
-- **Spring Data JPA**
-- **Spring Security**
-- **MongoDB**
-- **RestTemplate**
+Keep local credentials in the ignored root `.env` file. Use `.env.example` as a key-name reference; do not commit `.env` or place provider credentials in `NEXT_PUBLIC_*` variables.
 
-### Tools 🛠️
-- **Maven**
-- **Postman**
-- **Git**
-- **GitHub**
+Required settings:
 
-### Key Classes and Files 📂
+- `LIVE_SCORE_API_KEY` and `LIVE_SCORE_API_SECRET`
+- `SUPABASE_DB_URL` as a `postgresql://user:password@host:port/database` URL
+- `SUPABASE_DB_PASSWORD`
+- `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, and `SUPABASE_DB_USER` may override the direct URL host/user when using Supabase's IPv4 session pooler. Use the pooler host and project-qualified username shown in Project Settings > Database.
+- `EURO_SYNC_TOKEN`, a long random value required by the protected sync endpoint
+- `WEB_ORIGIN`, defaulting to `http://localhost:3000`
 
-1. **`DemoApplication.java`**: The main entry point for the Spring Boot application.
+The database connection uses SSL. Flyway baselines an existing manually created V1 schema, then applies newer migrations such as the groups table. On a fresh schema it applies all migrations. The migration set creates the competition, teams, players, matches, group standings, and sync-history tables.
 
-2. **`UserController.java`**: Handles user-related HTTP requests.
+## Run Locally
 
-3. **`MatchController.java`**: Manages match-related endpoints.
-
-4. **`AuthController.java`**: Manages authentication and authorization endpoints.
-
-5. **`UserService.java`**: Contains business logic for user operations.
-
-6. **`MatchService.java`**: Contains business logic for match operations.
-
-7. **`SecurityConfig.java`**: Configures Spring Security for the application.
-
-8. **`application.properties`**: Configuration file for application settings.
-   ```properties
-   spring.data.mongodb.uri=mongodb://localhost:27017/eurosporthub
-   spring.security.jwt.secret=mySecretKey
-   LIVE_SCORE_API_URL = FOOTBALL_SCORE_API_URL
-   LIVE_SCORE_API_KEY = YOUR_API_TOKEN_KEY
-   LIVE_SCORE_API_SECRET = YOUR_API_SECRET_KEY
-   ```
-
-## Installation 🛠️
-
-### Prerequisites
-
-- Java 17
-- Maven
-- MongoDB
-- Node.js
-- npm
-
-### Backend Setup
-
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/Moddic10/EuroSporthub---A-Football-Streaming-app.git
-   cd EuroSportHub/demo
-   ```
-
-2. **Database Setup**:
-
-   Ensure you have MongoDB installed and running. Create a database named `euro_sporthub`.
-
-3. **Environment Variables**:
-
-   Create a `.env` file in the root of your project and add the following keys:
-
-   ```env
-   LIVESCORE_API_KEY=your_api_key_here
-   LIVESCORE_API_SECRET=your_api_secret_here
-   DATABASE_URL=mongodb://localhost:27017/euro_sporthub
-   ```
-
-4. Install dependencies:
-   ```sh
-   mvn clean install
-   ```
-
-5. Configure MongoDB in `application.properties`:
-   ```properties
-   spring.data.mongodb.uri=mongodb://localhost:27017/eurosporthub
-   ```
-
-5. Run the application:
-   ```sh
-   mvn spring-boot:run
-   ```
-   
-## Backend Logic 🔧
-
-## API Endpoints 📡
-
-### Authentication
-
-- **Login**: `POST /api/auth/login`
-- **Register**: `POST /api/auth/register`
-
-### Matches
-
-- **Get Live Matches**: `GET /api/matches/live`
-- **Get Match Details**: `GET /api/matches/{matchId}`
-
-### Teams
-
-- **Get Teams**: `GET /api/teams`
-- **Get Team Details**: `GET /api/teams/{teamId}`
-
-### Example API Request
-
-To get live matches, you can use the following cURL command:
+Start the API from the repository root:
 
 ```sh
-curl -X GET "http://localhost:8080/api/matches/live" -H "accept: application/json"
+bash ./mvnw spring-boot:run
 ```
 
-## Contributing 🤝
+Select Node 22.23.3, install the web workspace, and start Next.js:
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+```sh
+nvm install
+nvm use
+npm install
+npm run dev:web
+```
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Open `http://localhost:3000`. The browser reads the API at `http://localhost:8080/api/euro-2024` by default.
 
-## License 📄
+## Data Sync
 
-Distributed under the MIT License. See `LICENSE` for more information.
+The dashboard's **Sync data** command is available in development and sends the sync token through a server-only Next.js route; it is never placed in browser code. The API sync endpoint uses the verified LiveScore response modules and EURO 2024 identifiers:
 
-## Contact 📧
+- Participants: `competitions/participants.json` with `competition_id=387` and `season=2024`
+- Groups: `competitions/groups.json` with `competition_id=387`
+- Completed results: `scores/history.json` with `competition_id=387`, `from=2024-06-14`, and `to=2024-07-14`; the sync follows `total_pages`
+- Upcoming fixtures: `fixtures/list.json`; this returns no rows for the completed EURO 2024 tournament
+- Group table: `groups/table.json` with a `group_id`
+- Live group table: `standings/live.json` with `competition_id=387` and a `group_id`; EURO 2024 is complete, so this can be empty
+- Team crests: `https://cdn.live-score-api.com/teams/{teamId}.png`
 
-Your Name - [Muhammad Said](mailto:mohammedabdy10@gmail.com)
+Run a sync from a trusted operator shell after configuring `EURO_SYNC_TOKEN`:
 
-Project Link: [https://github.com/Moddic10/EuroSportHub](https://github.com/Moddic10/EuroSporthub---A-Football-Streaming-app)
+```sh
+curl -X POST http://localhost:8080/api/euro-2024/sync \
+  -H "X-Sync-Token: $EURO_SYNC_TOKEN"
+```
+
+The API stores provider payloads as JSONB alongside queryable columns and records each sync attempt. Player records have a dedicated table and read endpoint; a roster sync is intentionally not guessed because the available LiveScore endpoint documentation does not confirm a squad endpoint. Enable a documented roster feed before expecting player rows.
+
+## Read API
+
+- `GET /api/euro-2024/summary`
+- `GET /api/euro-2024/sync-runs`
+- `GET /api/euro-2024/teams`
+- `GET /api/euro-2024/participants`
+- `GET /api/euro-2024/fixtures?groupId=2763`
+- `GET /api/euro-2024/fixtures?teamId=1438`
+- `GET /api/euro-2024/fixtures/group/2763`
+- `GET /api/euro-2024/fixtures/team/1438`
+- `GET /api/euro-2024/groups`
+- `GET /api/euro-2024/groups/2763/table?live=false`
+- `GET /api/euro-2024/groups/2763/standings`
+- `GET /api/euro-2024/groups/2763/standings/live`
+- `GET /api/euro-2024/players?teamId=1438`
+- `GET /api/euro-2024/players/team/1438`
+
+## Verify
+
+```sh
+bash ./mvnw test
+npm audit
+PATH=/path/to/node-22.23.3/bin:$PATH npm run build:web
+```
+
+Tests use H2 in PostgreSQL mode and apply the Flyway migration without requiring Supabase network access.
+
+## Deploy
+
+### Render API
+
+The root `Dockerfile` builds the Java 25 Spring Boot API, and `render.yaml` defines the Render web service. In Render:
+
+1. Import the repository and choose **Blueprint** deployment, or create a Docker web service from the repository root.
+2. Use the `render.yaml` Blueprint. Its health check is `GET /health`.
+3. Enter the `sync: false` values in the Render dashboard: Supabase connection/password/user, LiveScore key/secret, and `WEB_ORIGIN`.
+4. Keep `EURO_SYNC_TOKEN` generated by Render. Do not paste credentials into `render.yaml` or commit `.env`.
+
+The service listens on Render's `PORT` automatically. After deployment, note the API URL, for example `https://your-api.onrender.com`.
+
+### Vercel web app
+
+Create a separate Vercel project from the same repository:
+
+1. Set **Root Directory** to `apps/web`.
+2. Select the Next.js framework preset. `apps/web/vercel.json` supplies the build, install, and development commands.
+3. Set `NEXT_PUBLIC_EURO_API_URL` to `https://your-api.onrender.com/api/euro-2024`.
+4. Set `EURO_API_URL` to the same API URL for the server-only sync proxy.
+5. Set `WEB_ORIGIN` on Render to the final Vercel origin, such as `https://your-app.vercel.app`.
+6. Set the same `EURO_SYNC_TOKEN` value in Vercel and Render if the production Sync button should be enabled.
+
+Only the public API base URL belongs in `NEXT_PUBLIC_*`. LiveScore and Supabase credentials belong on Render only. The Vercel sync route forwards the token server-side and never exposes it to browser code.

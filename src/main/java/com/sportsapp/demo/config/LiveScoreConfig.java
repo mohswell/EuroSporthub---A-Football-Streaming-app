@@ -6,20 +6,33 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class LiveScoreConfig {
-    private final Dotenv dotenv = Dotenv.load();
-
-    @Bean
-    public String liveScoreApiUrl() {
-        return dotenv.get("LIVE_SCORE_API_URL");
-    }
+    private final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().ignoreIfMalformed().load();
 
     @Bean
     public String liveScoreApiKey() {
-        return dotenv.get("LIVE_SCORE_API_KEY");
+        return value("LIVE_SCORE_API_KEY");
     }
 
     @Bean
     public String liveScoreApiSecret() {
-        return dotenv.get("LIVE_SCORE_API_SECRET");
+        return value("LIVE_SCORE_API_SECRET");
+    }
+
+    @Bean
+    public String euroSyncToken() {
+        return value("EURO_SYNC_TOKEN");
+    }
+
+    private String value(String name) {
+        return value(name, "");
+    }
+
+    private String value(String name, String fallback) {
+        String environmentValue = System.getenv(name);
+        if (environmentValue != null) {
+            return environmentValue;
+        }
+        String dotenvValue = dotenv.get(name);
+        return dotenvValue == null ? fallback : dotenvValue;
     }
 }
