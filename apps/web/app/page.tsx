@@ -8,6 +8,7 @@ import {
   CloudDownload,
   Clock3,
   Flag,
+  Play,
   RefreshCw,
   Search,
   Shirt,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { View } from "./euro/types";
 import { Crest, EmptyState, formatKickoff, isLive } from "./components/EuroPrimitives";
@@ -152,7 +154,7 @@ export default function Home() {
           <>
           {featuredFixtures.length > 0 && <section className="featured-matches" aria-label="Featured EURO matches">
             <div className="featured-heading"><div><span className="panel-kicker">TOURNAMENT SPOTLIGHT</span><h3>Featured matches</h3></div><span className="count-pill">KNOCKOUT HIGHLIGHTS</span></div>
-            <div className="featured-grid">{featuredFixtures.map((fixture) => <article className="featured-card" key={fixture.id}>
+            <div className="featured-grid">{featuredFixtures.map((fixture) => <Link className="featured-card" href={`/watch/${fixture.id}`} key={fixture.id} aria-label={`Watch page for ${fixture.homeName} versus ${fixture.awayName}`}>
               <div className="featured-card-top"><span>{fixture.stage ?? "EURO 2024"}</span><span>{fixture.groupName ?? "GERMANY"}</span></div>
               <div className="featured-card-match">
                 <div><Crest team={teamById.get(fixture.homeTeamId ?? "")} label={fixture.homeName} /><strong>{fixture.homeName}</strong></div>
@@ -160,7 +162,7 @@ export default function Home() {
                 <div><Crest team={teamById.get(fixture.awayTeamId ?? "")} label={fixture.awayName} /><strong>{fixture.awayName}</strong></div>
               </div>
               <div className="featured-card-bottom"><span>{formatKickoff(fixture.kickoffAt)}</span><span>{fixture.venue ?? "Germany"}</span></div>
-            </article>)}</div>
+            </Link>)}</div>
           </section>}
           <div className="main-grid">
             <section className="fixtures-panel">
@@ -180,6 +182,7 @@ export default function Home() {
                         </div>
                         <div className="fixture-team away-team"><Crest team={teamById.get(fixture.awayTeamId ?? "")} label={fixture.awayName} /><strong>{fixture.awayName}</strong></div>
                         <div className="fixture-venue">{fixture.venue ?? "Germany"}</div>
+                        <Link className="fixture-watch" href={`/watch/${fixture.id}`} aria-label={`Open stream page for ${fixture.homeName} versus ${fixture.awayName}`}><Play size={14} /></Link>
                       </article>
                     );
                   })}
